@@ -149,5 +149,9 @@ koki_labelled_image_t* koki_label_adaptive( koki_t *koki,
 					    const IplImage *frame,
 					    uint16_t window_size,
 					    int16_t thresh_margin );
+koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
+					    const IplImage *frame,
+					    uint16_t window_size,
+					    int16_t thresh_margin );
 
 #endif /* _KOKI_LABELLING_H_ */
