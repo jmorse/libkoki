@@ -362,9 +362,9 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 	iimg = koki_integral_image_new( frame, false );
 	lmg = koki_labelled_image_new( frame->width, frame->height );
 
+	CvRect win;
 	for( y=0; y<frame->height; y++ )
 		for( x=0; x<frame->width; x++ ) {
-			CvRect win;
 
 			/* Get the ROI from the thresholder */
 			koki_funky_threshold_adaptive_calc_window( frame, &win,
