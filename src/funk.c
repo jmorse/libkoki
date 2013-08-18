@@ -240,15 +240,12 @@ koki_funky_integral_image_advance( uint32_t *ii, int imgwidth,
 
 	uint32_t *span = &ii[(y % 16) * imgwidth];
 	uint8_t *srcspan = ((srcimg)->imageData + (srcimg)->widthStep*(y));
+	uint32_t v = 0;
 	for( x=0; x < width; x++, span++, srcspan++) {
-		uint32_t v = 0;
 
 		sum[x] += *srcspan;
 
-		v = sum[x];
-
-		if( x > 0 )
-			v += *(span-1);
+		v += sum[x];
 
 		*span = v;
 	}
