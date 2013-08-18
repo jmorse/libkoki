@@ -196,12 +196,12 @@ static void label_image_calc_stats( koki_labelled_image_t *labelled_image )
 }
 
 static uint32_t koki_funky_integral_image_sum( const uint32_t *ii, int imgwidth,
-				  const CvRect *region );
+		int winsize, const CvRect *region );
 
 static bool
 koki_funky_threshold_adaptive_pixel( const IplImage *frame,
 				    uint32_t *iimg,
-				    const CvRect *roi,
+				    const CvRect *roi, int winsize,
 				    uint16_t x, uint16_t y, int16_t c )
 {
 	uint16_t w, h;
@@ -212,7 +212,7 @@ koki_funky_threshold_adaptive_pixel( const IplImage *frame,
 	h = roi->height;
 
 	/* calculate threshold */
-	sum = koki_funky_integral_image_sum( iimg, frame->width, roi );
+	sum = koki_funky_integral_image_sum( iimg, frame->width, winsize, roi );
 
 	/* The following is a rearranged version of
 	      threshold = sum / (w*h);
@@ -229,10 +229,10 @@ koki_funky_threshold_adaptive_pixel( const IplImage *frame,
 	return false;
 }
 
-#define ii_pix( img, w, x, y ) ( (img)[((y) * w) + (x)])
+#define ii_pix( img, w, winsize, x, y ) ( (img)[(((y) % 16) * w) + (x)])
 
 static void update_pixel( const IplImage *src, uint32_t *ii, uint32_t *sum,
-			int imgwidth, uint16_t x, uint16_t y )
+			int imgwidth, int winsize, uint16_t x, uint16_t y )
 {
 	uint32_t v = 0;
 
@@ -242,13 +242,14 @@ static void update_pixel( const IplImage *src, uint32_t *ii, uint32_t *sum,
 	v = sum[x];
 
 	if( x > 0 )
-		v += ii_pix( ii, imgwidth, x-1, y );
+		v += ii_pix( ii, imgwidth, winsize, x-1, y );
 
-	ii_pix( ii, imgwidth, x, y ) = v;
+	ii_pix( ii, imgwidth, winsize, x, y ) = v;
 }
 
 static void
-koki_funky_integral_image_advance( uint32_t *ii, int imgwidth, int *xcomplete,
+koki_funky_integral_image_advance( uint32_t *ii, int imgwidth, int winsize,
+				int *xcomplete,
 		                   int *ycomplete, const IplImage *srcimg,
 				   uint32_t *sum,
 				  uint16_t target_x, uint16_t target_y )
@@ -258,18 +259,18 @@ koki_funky_integral_image_advance( uint32_t *ii, int imgwidth, int *xcomplete,
 	/* Advance in the x-direction, but not y first */
 	for( x = *xcomplete; x <= target_x; x++ )
 		for( y=0; y < *ycomplete; y++ )
-			update_pixel( srcimg, ii, sum, imgwidth, x, y );
+			update_pixel( srcimg, ii, sum, imgwidth, winsize, x, y );
 	*xcomplete = target_x + 1;
 
 	/* Now advance in the y-direction */
 	for( x=0; x < *xcomplete; x++ )
 		for( y = *ycomplete; y <= target_y; y++ )
-			update_pixel( srcimg, ii, sum, imgwidth, x, y );
+			update_pixel( srcimg, ii, sum, imgwidth, winsize, x, y );
 	*ycomplete = target_y + 1;
 }
 
 static uint32_t
-koki_funky_integral_image_sum( const uint32_t *ii, int imgwidth,
+koki_funky_integral_image_sum( const uint32_t *ii, int imgwidth, int winsize,
 				  const CvRect *region )
 {
 	uint32_t v;
@@ -278,19 +279,19 @@ koki_funky_integral_image_sum( const uint32_t *ii, int imgwidth,
 	const uint32_t se_y = region->y + region->height - 1;
 
 	/* SE corner */
-	v = ii_pix( ii, imgwidth, se_x, se_y );
+	v = ii_pix( ii, imgwidth, winsize, se_x, se_y );
 
 	if( region->x > 0 && region->y > 0 )
 		/* NW of top left corner */
-		v += ii_pix( ii, imgwidth, region->x - 1, region->y - 1 );
+		v += ii_pix( ii, imgwidth, winsize, region->x - 1, region->y - 1 );
 
 	if( region->x > 0 )
 		/* E of bottom left corner */
-		v -= ii_pix( ii, imgwidth, region->x - 1, se_y );
+		v -= ii_pix( ii, imgwidth, winsize, region->x - 1, se_y );
 
 	if( region->y > 0 )
 		/* N of top right corner */
-		v -= ii_pix( ii, imgwidth, se_x, region->y - 1 );
+		v -= ii_pix( ii, imgwidth, winsize, se_x, region->y - 1 );
 
 	return v;
 }
@@ -358,7 +359,7 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 	/* Instead of an integral image, use a plain array instead. We can
 	 * then optimise around this later. Also: the sum array. */
 	uint32_t *iimg =
-		calloc(1, sizeof(uint32_t) * frame->width * frame->height);
+		calloc(1, sizeof(uint32_t) * frame->width * 16);
 	uint32_t *sumarr = calloc(1, sizeof(uint32_t) * frame->width);
 
 	assert(frame != NULL && frame->nChannels == 1);
@@ -374,7 +375,7 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 		yadvance++;
 		yadvance = MIN(yadvance, frame->height - 1);
 		koki_funky_integral_image_advance( iimg,
-				frame->width, &xcomplete,
+				frame->width, window_size, &xcomplete,
 				&ycomplete, frame, sumarr, frame->width - 1,
 				yadvance);
 
@@ -386,8 +387,9 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 
 
 			if( koki_funky_threshold_adaptive_pixel( frame,
-							   iimg,
-							   &win, x, y, thresh_margin ) ) {
+							   iimg, &win,
+							   window_size,
+							   x, y, thresh_margin ) ) {
 				/* Nothing exciting */
 				set_label( lmg, x, y, 0);
 
