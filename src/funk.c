@@ -238,7 +238,8 @@ koki_funky_integral_image_advance( uint32_t *ii, int imgwidth,
 {
 	uint16_t x;
 
-	for( x=0; x < width; x++ ) {
+	uint32_t *span = &ii[(y % 16) * imgwidth];
+	for( x=0; x < width; x++, span++) {
 		uint32_t v = 0;
 
 		sum[x] += KOKI_IPLIMAGE_GS_ELEM( srcimg, x, y );
@@ -246,9 +247,9 @@ koki_funky_integral_image_advance( uint32_t *ii, int imgwidth,
 		v = sum[x];
 
 		if( x > 0 )
-			v += ii_pix( ii, imgwidth, x-1, y );
+			v += *(span-1);
 
-		ii_pix( ii, imgwidth, x, y ) = v;
+		*span = v;
 	}
 }
 
