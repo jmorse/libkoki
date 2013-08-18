@@ -255,8 +255,8 @@ koki_funky_integral_image_advance( uint32_t *ii, int imgwidth,
 {
 	uint16_t x, y;
 
-	for( x=0; x < width; x++ )
-		for( y = *ycomplete; y <= target_y; y++ )
+	for( y = *ycomplete; y <= target_y; y++ )
+		for( x=0; x < width; x++ )
 			update_pixel( srcimg, ii, sum, imgwidth, x, y );
 	*ycomplete = target_y + 1;
 }
