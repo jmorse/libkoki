@@ -239,10 +239,11 @@ koki_funky_integral_image_advance( uint32_t *ii, int imgwidth,
 	uint16_t x;
 
 	uint32_t *span = &ii[(y % 16) * imgwidth];
-	for( x=0; x < width; x++, span++) {
+	uint8_t *srcspan = ((srcimg)->imageData + (srcimg)->widthStep*(y));
+	for( x=0; x < width; x++, span++, srcspan++) {
 		uint32_t v = 0;
 
-		sum[x] += KOKI_IPLIMAGE_GS_ELEM( srcimg, x, y );
+		sum[x] += *srcspan;
 
 		v = sum[x];
 
