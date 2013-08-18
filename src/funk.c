@@ -249,21 +249,13 @@ static void update_pixel( const IplImage *src, uint32_t *ii, uint32_t *sum,
 
 static void
 koki_funky_integral_image_advance( uint32_t *ii, int imgwidth, int winsize,
-				int *xcomplete,
 		                   int *ycomplete, const IplImage *srcimg,
 				   uint32_t *sum,
-				  uint16_t target_x, uint16_t target_y )
+				  uint16_t width, uint16_t target_y )
 {
 	uint16_t x, y;
 
-	/* Advance in the x-direction, but not y first */
-	for( x = *xcomplete; x <= target_x; x++ )
-		for( y=0; y < *ycomplete; y++ )
-			update_pixel( srcimg, ii, sum, imgwidth, winsize, x, y );
-	*xcomplete = target_x + 1;
-
-	/* Now advance in the y-direction */
-	for( x=0; x < *xcomplete; x++ )
+	for( x=0; x < width; x++ )
 		for( y = *ycomplete; y <= target_y; y++ )
 			update_pixel( srcimg, ii, sum, imgwidth, winsize, x, y );
 	*ycomplete = target_y + 1;
@@ -316,7 +308,7 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 	lmg = koki_labelled_image_new( frame->width, frame->height );
 
 	CvRect win;
-	int xcomplete = 0, ycomplete = 0;
+	int ycomplete = 0;
 	int yadvance = window_size / 2;
 	int half_win_size = window_size / 2;
 	int winx, winy, winwidth, winheight;
@@ -328,7 +320,7 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 		yadvance++;
 		yadvance = MIN(yadvance, frame->height - 1);
 		koki_funky_integral_image_advance( iimg,
-				frame->width, window_size, &xcomplete,
+				frame->width, window_size,
 				&ycomplete, frame, sumarr, frame->width - 1,
 				yadvance);
 
