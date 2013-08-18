@@ -231,22 +231,6 @@ koki_funky_threshold_adaptive_pixel( const IplImage *frame,
 
 #define ii_pix( img, w, x, y ) ( (img)[(((y) % 16) * w) + (x)])
 
-static void update_pixel( const IplImage *src, uint32_t *ii, uint32_t *sum,
-			int imgwidth, uint16_t x, uint16_t y )
-{
-	uint32_t v = 0;
-
-	/* Note that we expect the source image to be greyscale */
-	sum[x] += KOKI_IPLIMAGE_GS_ELEM( src, x, y );
-
-	v = sum[x];
-
-	if( x > 0 )
-		v += ii_pix( ii, imgwidth, x-1, y );
-
-	ii_pix( ii, imgwidth, x, y ) = v;
-}
-
 static void
 koki_funky_integral_image_advance( uint32_t *ii, int imgwidth,
 		                   int *ycomplete, const IplImage *srcimg,
@@ -255,9 +239,21 @@ koki_funky_integral_image_advance( uint32_t *ii, int imgwidth,
 {
 	uint16_t x, y;
 
-	for( y = *ycomplete; y <= target_y; y++ )
-		for( x=0; x < width; x++ )
-			update_pixel( srcimg, ii, sum, imgwidth, x, y );
+	for( y = *ycomplete; y <= target_y; y++ ) {
+		for( x=0; x < width; x++ ) {
+			uint32_t v = 0;
+
+			sum[x] += KOKI_IPLIMAGE_GS_ELEM( srcimg, x, y );
+
+			v = sum[x];
+
+			if( x > 0 )
+				v += ii_pix( ii, imgwidth, x-1, y );
+
+			ii_pix( ii, imgwidth, x, y ) = v;
+		}
+	}
+
 	*ycomplete = target_y + 1;
 }
 
