@@ -362,15 +362,6 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 	iimg = koki_integral_image_new( frame, false );
 	lmg = koki_labelled_image_new( frame->width, frame->height );
 
-	if( koki_is_logging( koki ) ) {
-		/* We'll log the thresholded image */
-		/* create an image for logging purposes */
-		thresh_img = cvCreateImage( cvSize( frame->width, frame->height ),
-					    IPL_DEPTH_8U, 1 );
-
-		g_assert( thresh_img != NULL );
-	}
-
 	for( y=0; y<frame->height; y++ )
 		for( x=0; x<frame->width; x++ ) {
 			CvRect win;
