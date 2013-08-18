@@ -233,28 +233,23 @@ koki_funky_threshold_adaptive_pixel( const IplImage *frame,
 
 static void
 koki_funky_integral_image_advance( uint32_t *ii, int imgwidth,
-		                   int *ycomplete, const IplImage *srcimg,
-				   uint32_t *sum,
-				  uint16_t width, uint16_t target_y )
+		                   const IplImage *srcimg,
+				   uint32_t *sum, uint16_t width, int y)
 {
-	uint16_t x, y;
+	uint16_t x;
 
-	for( y = *ycomplete; y <= target_y; y++ ) {
-		for( x=0; x < width; x++ ) {
-			uint32_t v = 0;
+	for( x=0; x < width; x++ ) {
+		uint32_t v = 0;
 
-			sum[x] += KOKI_IPLIMAGE_GS_ELEM( srcimg, x, y );
+		sum[x] += KOKI_IPLIMAGE_GS_ELEM( srcimg, x, y );
 
-			v = sum[x];
+		v = sum[x];
 
-			if( x > 0 )
-				v += ii_pix( ii, imgwidth, x-1, y );
+		if( x > 0 )
+			v += ii_pix( ii, imgwidth, x-1, y );
 
-			ii_pix( ii, imgwidth, x, y ) = v;
-		}
+		ii_pix( ii, imgwidth, x, y ) = v;
 	}
-
-	*ycomplete = target_y + 1;
 }
 
 static uint32_t
@@ -304,8 +299,14 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 	lmg = koki_labelled_image_new( frame->width, frame->height );
 
 	CvRect win;
-	int ycomplete = 0;
 	int yadvance = window_size / 2;
+
+	/* Process the first lump of the image */
+	for (int i = 0; i < yadvance; i++)
+		koki_funky_integral_image_advance(iimg, frame->width,
+						   frame, sumarr,
+						   frame->width - 1, i);
+
 	int half_win_size = window_size / 2;
 	int winx, winy, winwidth, winheight;
 	winy = -half_win_size;
@@ -316,8 +317,7 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 		yadvance++;
 		yadvance = MIN(yadvance, frame->height - 1);
 		koki_funky_integral_image_advance( iimg, frame->width,
-				&ycomplete, frame, sumarr, frame->width - 1,
-				yadvance);
+				frame, sumarr, frame->width - 1, yadvance);
 
 		winx = -half_win_size;
 		winwidth = 1;
