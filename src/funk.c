@@ -316,8 +316,12 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 		/* Advance the integral image */
 		yadvance++;
 		yadvance = MIN(yadvance, frame->height - 1);
-		koki_funky_integral_image_advance( iimg, frame->width,
-				frame, sumarr, frame->width - 1, yadvance);
+
+		/* Skip repeatedly integrating the last line */
+		if (yadvance != frame->height || winheight < window_size)
+			koki_funky_integral_image_advance( iimg, frame->width,
+					frame, sumarr, frame->width - 1,
+					yadvance);
 
 		winx = -half_win_size;
 		winwidth = 1;
