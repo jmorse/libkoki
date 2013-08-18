@@ -296,57 +296,6 @@ koki_funky_integral_image_sum( const uint32_t *ii, int imgwidth, int winsize,
 	return v;
 }
 
-static void
-koki_funky_threshold_adaptive_calc_window( const IplImage *frame,
-					  CvRect *win,
-					  uint16_t window_size,
-					  uint16_t x, uint16_t y )
-{
-	uint16_t width, height;
-	assert(window_size % 2 == 1);
-
-	width = frame->width;
-	height = frame->height;
-	assert( x < width);
-	assert( y < height);
-
-	/* identify the window - x */
-	if (x >= window_size / 2 &&
-	    x < (width-1) - window_size / 2){
-
-		/* normal case, away from frame edges */
-		win->x      = x - window_size/2;
-		win->width  = window_size;
-
-	} else {
-
-		/* we're at the edge, limit roi accordingly */
-		win->width = window_size / 2 + 1;
-		win->x = x < window_size / 2
-			? 0
-			: (width-1) - window_size / 2;
-
-	}
-
-	/* identify the window - y */
-	if (y >= window_size / 2 &&
-	    y < (height-1) - window_size / 2){
-
-		/* normal case, away from frame edges */
-		win->y      = y - window_size/2;
-		win->height = window_size;
-
-	} else {
-
-		/* we're at the edge, limit roi accordingly */
-		win->height = window_size / 2 + 1;
-		win->y = y < window_size / 2
-			? 0
-			: (height-1) - window_size / 2;
-
-	}
-}
-
 koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 					    const IplImage *frame,
 					    uint16_t window_size,
@@ -369,6 +318,10 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 	CvRect win;
 	int xcomplete = 0, ycomplete = 0;
 	int yadvance = window_size / 2;
+	int half_win_size = window_size / 2;
+	int winx, winy, winwidth, winheight;
+	winy = -half_win_size;
+	winheight = 1;
 	for( y=0; y<frame->height; y++ ) {
 
 		/* Advance the integral image */
@@ -379,12 +332,14 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 				&ycomplete, frame, sumarr, frame->width - 1,
 				yadvance);
 
+		winx = -half_win_size;
+		winwidth = 1;
+
 		for( x=0; x<frame->width; x++ ) {
-
-			/* Get the ROI from the thresholder */
-			koki_funky_threshold_adaptive_calc_window( frame, &win,
-							     window_size, x, y );
-
+			win.x = MAX(0, winx);
+			win.y = MAX(0, winy);
+			win.width = winwidth;
+			win.height = winheight;
 
 			if( koki_funky_threshold_adaptive_pixel( frame,
 							   iimg, &win,
@@ -402,7 +357,13 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 				if( thresh_img != NULL )
 					KOKI_IPLIMAGE_GS_ELEM( thresh_img, x, y ) = 0;
 			}
+
+			winwidth = MIN(winwidth + 1, window_size);
+			winx = MIN(frame->width, winx+1);
 		}
+
+		winheight = MIN(winheight + 1, window_size);
+		winy = MIN(frame->height, winy+1);
 	}
 
 	if( thresh_img != NULL ) {
