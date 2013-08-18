@@ -367,21 +367,23 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 
 	CvRect win;
 	int xcomplete = 0, ycomplete = 0;
-	for( y=0; y<frame->height; y++ )
+	int yadvance = window_size / 2;
+	for( y=0; y<frame->height; y++ ) {
+
+		/* Advance the integral image */
+		yadvance++;
+		yadvance = MIN(yadvance, frame->height - 1);
+		koki_funky_integral_image_advance( iimg,
+				frame->width, &xcomplete,
+				&ycomplete, frame, sumarr, frame->width - 1,
+				yadvance);
+
 		for( x=0; x<frame->width; x++ ) {
 
 			/* Get the ROI from the thresholder */
 			koki_funky_threshold_adaptive_calc_window( frame, &win,
 							     window_size, x, y );
 
-
-			/* Advance the integral image */
-			if( x == 0 )
-				koki_funky_integral_image_advance( iimg,
-						frame->width, &xcomplete,
-						&ycomplete, frame, sumarr,
-							     frame->width - 1,
-							     win.y + win.height - 1 );
 
 			if( koki_funky_threshold_adaptive_pixel( frame,
 							   iimg,
@@ -399,6 +401,7 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 					KOKI_IPLIMAGE_GS_ELEM( thresh_img, x, y ) = 0;
 			}
 		}
+	}
 
 	if( thresh_img != NULL ) {
 		koki_log( koki, "thresholded image\n", thresh_img );
