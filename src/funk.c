@@ -282,7 +282,6 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 {
 	uint16_t x, y;
 	koki_labelled_image_t *lmg;
-	IplImage *thresh_img = NULL;
 
 	/* Instead of an integral image, use a plain array instead. We can
 	 * then optimise around this later. Also: the sum array. */
@@ -333,15 +332,9 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 							   x, y, thresh_margin ) ) {
 				/* Nothing exciting */
 				set_label( lmg, x, y, 0);
-
-				if( thresh_img != NULL )
-					KOKI_IPLIMAGE_GS_ELEM( thresh_img, x, y ) = 0xff;
 			} else {
 				/* Label the thing */
 				label_dark_pixel( lmg, x, y );
-
-				if( thresh_img != NULL )
-					KOKI_IPLIMAGE_GS_ELEM( thresh_img, x, y ) = 0;
 			}
 
 			winwidth = MIN(winwidth + 1, window_size);
@@ -350,11 +343,6 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 
 		winheight = MIN(winheight + 1, window_size);
 		winy = MIN(frame->height, winy+1);
-	}
-
-	if( thresh_img != NULL ) {
-		koki_log( koki, "thresholded image\n", thresh_img );
-		cvReleaseImage( &thresh_img );
 	}
 
 	/* Sort out all the remaining labelling related stuff */
