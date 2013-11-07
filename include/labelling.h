@@ -125,7 +125,7 @@ typedef uint16_t label_t;
  * \c (label_no-1).
  */
 typedef struct {
-	uint32_t *data;    /**< the array of labels, organised row after row */
+	uint32_t * restrict data;    /**< the array of labels, organised row after row */
 	uint16_t w;        /**< the width of the labelled image */
 	uint16_t h;        /**< the height of the labelled image */
 	GArray *clips;     /**< a \c GArray* of \c koki_clip_region_t for the
@@ -134,7 +134,7 @@ typedef struct {
                                 label number (see above) */
 
 	/* "yolo" */
-	uint32_t *labelling_cur_ptr;
+	uint32_t * restrict labelling_cur_ptr;
 	uint32_t labelling_counter;
 } koki_labelled_image_t;
 

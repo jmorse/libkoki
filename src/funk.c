@@ -10,7 +10,7 @@
 #define label_aliases_index( arr, index ) g_array_index( arr, label_t, index )
 #define label_clips_index( arr, index ) g_array_index( arr, koki_clip_region_t, index )
 
-static label_t label_find_canonical( koki_labelled_image_t *lmg,
+static label_t label_find_canonical( koki_labelled_image_t * restrict lmg,
 				     label_t l )
 {
 	while(1) {
@@ -24,9 +24,9 @@ static label_t label_find_canonical( koki_labelled_image_t *lmg,
 	}
 }
 
-static void label_alias( koki_labelled_image_t *lmg, label_t l_canon, label_t l_alias )
+static void label_alias( koki_labelled_image_t * restrict lmg, label_t l_canon, label_t l_alias )
 {
-	label_t *l;
+	label_t * restrict l;
 
 	/* Resolve to the minimum alias of l_alias */
 	l_alias = label_find_canonical( lmg, l_alias );
@@ -39,15 +39,16 @@ static void label_alias( koki_labelled_image_t *lmg, label_t l_canon, label_t l_
 
 #define wrapped_old_label_access(base, idx, width) (&(base)[((idx) >= (width)+1) ? ((idx) - ((width)+1)) : (idx)])
 
-static void set_label(koki_labelled_image_t *labelled_image,
+static void set_label(koki_labelled_image_t * restrict labelled_image,
 		      uint16_t x, uint16_t y, label_t label,
-		      label_t *old_labels, unsigned int *old_label_idx)
+		      label_t * restrict old_labels,
+		      unsigned int * restrict old_label_idx)
 {
 
 	if (label == 0){
 		;
 	} else {
-		koki_clip_region_t *clip;
+		koki_clip_region_t * restrict clip;
 
 		assert(labelled_image->aliases != NULL
 		       && labelled_image->aliases->len > label-1);
@@ -81,8 +82,8 @@ static void set_label(koki_labelled_image_t *labelled_image,
 	}
 }
 
-static label_t get_old_label(label_t *old_labels,
-					unsigned int *old_label_idx,
+static label_t get_old_label(label_t * restrict old_labels,
+					unsigned int * restrict old_label_idx,
 					unsigned int width,
 					enum DIRECTION direction)
 {
@@ -108,9 +109,10 @@ static label_t get_old_label(label_t *old_labels,
 	return *wrapped_old_label_access(old_labels, offs, width);
 }
 
-static void label_dark_pixel( koki_labelled_image_t *lmg,
+static void label_dark_pixel( koki_labelled_image_t * restrict lmg,
 			      uint16_t x, uint16_t y,
-			      label_t *old_labels, unsigned int *old_label_idx)
+			      label_t * restrict old_labels,
+			      unsigned int * restrict old_label_idx)
 {
 	label_t label_tmp;
 
@@ -197,11 +199,11 @@ static void label_dark_pixel( koki_labelled_image_t *lmg,
 	set_label(lmg, x, y, label_tmp, old_labels, old_label_idx);
 }
 
-static void label_image_calc_stats( koki_labelled_image_t *labelled_image )
+static void label_image_calc_stats( koki_labelled_image_t * restrict labelled_image )
 {
 	/* Now renumber all labels to ensure they're all canonical */
 	for( label_t i=1; i<labelled_image->aliases->len; i++ ) {
-		label_t *a = &label_aliases_index( labelled_image->aliases, i-1 );
+		label_t * restrict a = &label_aliases_index( labelled_image->aliases, i-1 );
 
 		*a = label_find_canonical( labelled_image, i );
 	}
@@ -209,7 +211,7 @@ static void label_image_calc_stats( koki_labelled_image_t *labelled_image )
 	/* collect label statistics (mass, bounding box) */
 
 	label_t max_alias = 0;
-	GArray *aliases, *clips;
+	GArray * restrict aliases, * restrict clips;
 
 	aliases = labelled_image->aliases;
 	clips = labelled_image->clips;
@@ -219,7 +221,7 @@ static void label_image_calc_stats( koki_labelled_image_t *labelled_image )
 	 * if the indexes corresponding label wasn't an alias, with all fields
 	 * zero if it was. */
 	for( label_t i=1; i<labelled_image->aliases->len; i++ ) {
-		koki_clip_region_t *alias_clip, *canonical_clip;
+		koki_clip_region_t * restrict alias_clip, * restrict canonical_clip;
 
 		label_t canonical_label =
 			label_aliases_index( labelled_image->aliases, i-1 );
@@ -274,9 +276,9 @@ static uint32_t koki_funky_integral_image_sum( const uint32_t *ii, int imgwidth,
 		const CvRect *region );
 
 static bool
-koki_funky_threshold_adaptive_pixel( const IplImage *frame,
-				    uint32_t *iimg,
-				    const CvRect *roi,
+koki_funky_threshold_adaptive_pixel( const IplImage * restrict frame,
+				    uint32_t * restrict iimg,
+				    const CvRect * restrict roi,
 				    uint16_t x, uint16_t y, int16_t c )
 {
 	uint16_t w, h;
@@ -307,14 +309,15 @@ koki_funky_threshold_adaptive_pixel( const IplImage *frame,
 #define ii_pix( img, w, x, y ) ( (img)[(((y) % 16) * w) + (x)])
 
 static void
-koki_funky_integral_image_advance( uint32_t *ii, int imgwidth,
-		                   const IplImage *srcimg,
-				   uint32_t *sum, uint16_t width, int y)
+koki_funky_integral_image_advance( uint32_t * restrict ii, int imgwidth,
+		                   const IplImage * restrict srcimg,
+				   uint32_t * restrict sum, uint16_t width,
+				   int y)
 {
 	uint16_t x;
 
-	uint32_t *span = &ii[(y % 16) * imgwidth];
-	uint8_t *srcspan = ((srcimg)->imageData + (srcimg)->widthStep*(y));
+	uint32_t * restrict span = &ii[(y % 16) * imgwidth];
+	uint8_t * restrict srcspan = ((srcimg)->imageData + (srcimg)->widthStep*(y));
 	uint32_t v = 0;
 	for( x=0; x < width; x++) {
 		*sum += *srcspan++;
@@ -324,8 +327,8 @@ koki_funky_integral_image_advance( uint32_t *ii, int imgwidth,
 }
 
 static uint32_t
-koki_funky_integral_image_sum( const uint32_t *ii, int imgwidth,
-				  const CvRect *region )
+koki_funky_integral_image_sum( const uint32_t * restrict ii, int imgwidth,
+				  const CvRect * restrict region )
 {
 	uint32_t v;
 	/* Coordinates of the south-east pixel of the region */
@@ -350,8 +353,8 @@ koki_funky_integral_image_sum( const uint32_t *ii, int imgwidth,
 	return v;
 }
 
-koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
-					    const IplImage *frame,
+koki_labelled_image_t* koki_funky_label_adaptive( koki_t * restrict koki,
+					    const IplImage * restrict frame,
 					    uint16_t window_size,
 					    int16_t thresh_margin )
 {
@@ -364,9 +367,9 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 
 	/* Instead of an integral image, use a plain array instead. We can
 	 * then optimise around this later. Also: the sum array. */
-	uint32_t *iimg =
+	uint32_t * restrict iimg =
 		calloc(1, sizeof(uint32_t) * frame->width * 16);
-	uint32_t *sumarr = calloc(1, sizeof(uint32_t) * frame->width);
+	uint32_t * restrict sumarr = calloc(1, sizeof(uint32_t) * frame->width);
 
 	assert(frame != NULL && frame->nChannels == 1);
 
