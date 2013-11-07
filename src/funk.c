@@ -45,9 +45,7 @@ static void set_label(koki_labelled_image_t *labelled_image,
 {
 
 	if (label == 0){
-
-		KOKI_LABELLED_IMAGE_CLEAR_LABEL(labelled_image, x, y);
-
+		;
 	} else {
 		koki_clip_region_t *clip;
 
@@ -65,7 +63,8 @@ static void set_label(koki_labelled_image_t *labelled_image,
 			clip->top_most_x = x;
 
 		/* Label image as either zero or one, for light or dark. */
-		KOKI_LABELLED_IMAGE_SET_LABEL(labelled_image, x, y);
+		*labelled_image->labelling_cur_ptr |=
+			(1 << labelled_image->labelling_counter);
 	}
 
 	*wrapped_old_label_access(old_labels, *old_label_idx, labelled_image->w)
@@ -74,6 +73,12 @@ static void set_label(koki_labelled_image_t *labelled_image,
 	(*old_label_idx)++;
 	if ((*old_label_idx) >= (labelled_image->w + 1))
 		*old_label_idx = 0;
+
+	if (++labelled_image->labelling_counter == 32) {
+		labelled_image->labelling_cur_ptr++;
+		*labelled_image->labelling_cur_ptr = 0;
+		labelled_image->labelling_counter = 0;
+	}
 }
 
 static label_t get_old_label(label_t *old_labels,
@@ -366,6 +371,9 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 	assert(frame != NULL && frame->nChannels == 1);
 
 	lmg = koki_labelled_image_new( frame->width, frame->height );
+	lmg->labelling_cur_ptr = lmg->data;
+	*lmg->labelling_cur_ptr = 0;
+	lmg->labelling_counter = 0;
 
 	CvRect win;
 	int yadvance = window_size / 2;

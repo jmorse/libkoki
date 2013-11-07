@@ -132,6 +132,10 @@ typedef struct {
                                 clip regions of each label */
 	GArray *aliases;   /**< a GArray* of \c label_t containing the final
                                 label number (see above) */
+
+	/* "yolo" */
+	uint32_t *labelling_cur_ptr;
+	uint32_t labelling_counter;
 } koki_labelled_image_t;
 
 
