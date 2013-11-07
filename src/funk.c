@@ -37,8 +37,11 @@ static void label_alias( koki_labelled_image_t *lmg, label_t l_canon, label_t l_
 	*l = l_canon;
 }
 
+#define wrapped_old_label_access(base, idx, width) (&(base)[((idx) >= (width)+1) ? ((idx) - ((width)+1)) : (idx)])
+
 static void set_label(koki_labelled_image_t *labelled_image,
-		      uint16_t x, uint16_t y, label_t label)
+		      uint16_t x, uint16_t y, label_t label,
+		      label_t *old_labels, unsigned int *old_label_idx)
 {
 
 	if (label == 0){
@@ -46,40 +49,84 @@ static void set_label(koki_labelled_image_t *labelled_image,
 		KOKI_LABELLED_IMAGE_LABEL(labelled_image, x, y) = 0;
 
 	} else {
+		koki_clip_region_t *clip;
 
 		assert(labelled_image->aliases != NULL
 		       && labelled_image->aliases->len > label-1);
 
-		KOKI_LABELLED_IMAGE_LABEL(labelled_image, x, y)
-			= label_aliases_index( labelled_image->aliases,
-					       label-1 );
+		clip = &label_clips_index( labelled_image->clips, label-1 );
+		clip->mass++;
+		clip->max.x = MAX(clip->max.x, x);
+		clip->max.y = MAX(clip->max.y, y);
+		clip->min.x = MIN(clip->min.x, x);
+		clip->min.y = MIN(clip->min.y, y);
+
+		if (clip->min.y == y)
+			clip->top_most_x = x;
+
+		/* Label image as either zero or one, for light or dark. */
+		KOKI_LABELLED_IMAGE_LABEL(labelled_image, x, y) = label;
 	}
 
+	*wrapped_old_label_access(old_labels, *old_label_idx, labelled_image->w)
+		= label;
+
+	(*old_label_idx)++;
+	if ((*old_label_idx) >= (labelled_image->w + 1))
+		*old_label_idx = 0;
+}
+
+static label_t get_old_label(label_t *old_labels,
+					unsigned int *old_label_idx,
+					unsigned int width,
+					enum DIRECTION direction)
+{
+	int offs = 0;
+	switch (direction) {
+	case N:
+		offs = 1;
+		break;
+	case NE:
+		offs = 2;
+		break;
+	case NW:
+		offs = 0;
+		break;
+	case W:
+		offs = width; /* Will wrap */
+		break;
+	default:
+		abort();
+	}
+
+	offs += *old_label_idx;
+	return *wrapped_old_label_access(old_labels, offs, width);
 }
 
 static void label_dark_pixel( koki_labelled_image_t *lmg,
-			      uint16_t x, uint16_t y )
+			      uint16_t x, uint16_t y,
+			      label_t *old_labels, unsigned int *old_label_idx)
 {
 	label_t label_tmp;
 
 	/* if pixel above is labelled, join that label */
-	label_tmp = get_connected_label(lmg, x, y, N);
+	label_tmp = get_old_label(old_labels, old_label_idx, lmg->w, N);
 	if (label_tmp > 0){
-		set_label(lmg, x, y, label_tmp);
+		set_label(lmg, x, y, label_tmp, old_labels, old_label_idx);
 		return;
 	}
 
 	/* if NE pixel is labelled, some merging may need to occur */
-	label_tmp = get_connected_label(lmg, x, y, NE);
+	label_tmp = get_old_label(old_labels, old_label_idx, lmg->w, NE);
 	if (label_tmp > 0){
 
 		label_t label_w, label_nw, l1, l2, label_min, label_max;
-		label_w  = get_connected_label(lmg, x, y, W);
-		label_nw = get_connected_label(lmg, x, y, NW);
+		label_w = get_old_label(old_labels, old_label_idx, lmg->w, W);
+		label_nw = get_old_label(old_labels, old_label_idx, lmg->w, NW);
 
 		/* if one of the pixels W or NW are labelled, they should
 		   be merged together */
-		if (label_w > 0 || label_nw > 0){
+		if ((label_w > 0 || label_nw > 0) && x != 0) {
 
 			l1 = label_aliases_index( lmg->aliases, label_tmp-1 );
 
@@ -95,11 +142,13 @@ static void label_dark_pixel( koki_labelled_image_t *lmg,
 				label_max = l1;
 			}
 
-			set_label(lmg, x, y, label_min);
+			set_label(lmg, x, y, label_min, old_labels,
+					old_label_idx);
 			label_alias( lmg, label_min, label_max );
 		} else {
 
-			set_label(lmg, x, y, label_tmp);
+			set_label(lmg, x, y, label_tmp, old_labels,
+					old_label_idx);
 
 		}
 
@@ -107,16 +156,16 @@ static void label_dark_pixel( koki_labelled_image_t *lmg,
 	}
 
 	/* Otherwise, take the NW label, if present */
-	label_tmp = get_connected_label(lmg, x, y, NW);
-	if (label_tmp > 0){
-		set_label(lmg, x, y, label_tmp);
+	label_tmp = get_old_label(old_labels, old_label_idx, lmg->w, NW);
+	if (label_tmp > 0 && x != 0) {
+		set_label(lmg, x, y, label_tmp, old_labels, old_label_idx);
 		return;
 	}
 
 	/* Otherwise, take the W label, if present */
-	label_tmp = get_connected_label(lmg, x, y, W);
-	if (label_tmp > 0){
-		set_label(lmg, x, y, label_tmp);
+	label_tmp = get_old_label(old_labels, old_label_idx, lmg->w, W);
+	if (label_tmp > 0 && x != 0) {
+		set_label(lmg, x, y, label_tmp, old_labels, old_label_idx);
 		return;
 	}
 
@@ -127,7 +176,20 @@ static void label_dark_pixel( koki_labelled_image_t *lmg,
 
 	label_tmp = lmg->aliases->len + 1;
 	g_array_append_val(lmg->aliases, label_tmp);
-	set_label(lmg, x, y, label_tmp);
+
+	/* Init clip for this label. Set the max and minimum pixel locations to
+	 * this pixels location. */
+	koki_clip_region_t clip;
+	clip.mass = 0;
+	clip.max.x = x;
+	clip.max.y = y;
+	clip.min.x = x;
+	clip.min.y = y;
+	clip.top_least_x = x;
+	clip.top_most_x = x;
+	g_array_append_val(lmg->clips, clip);
+
+	set_label(lmg, x, y, label_tmp, old_labels, old_label_idx);
 }
 
 static void label_image_calc_stats( koki_labelled_image_t *labelled_image )
@@ -147,52 +209,60 @@ static void label_image_calc_stats( koki_labelled_image_t *labelled_image )
 	aliases = labelled_image->aliases;
 	clips = labelled_image->clips;
 
-	/* find largest alias */
-	for (label_t i=0; i<aliases->len; i++){
-		label_t alias = label_aliases_index( aliases, i );
-		if (alias > max_alias)
-			max_alias = alias;
+	/* Iterate over all of the aliases, merging their clips bounds into the
+	 * aliased clip. Output is an array of clips, with accumulated bounds
+	 * if the indexes corresponding label wasn't an alias, with all fields
+	 * zero if it was. */
+	for( label_t i=1; i<labelled_image->aliases->len; i++ ) {
+		koki_clip_region_t *alias_clip, *canonical_clip;
+
+		label_t canonical_label =
+			label_aliases_index( labelled_image->aliases, i-1 );
+
+		/* Merge this aliases clip into the aliased labels clip */
+		alias_clip = &label_clips_index( clips, i-1 );
+		canonical_clip = &label_clips_index( clips, canonical_label-1 );
+
+		if (i == canonical_label)
+			/* This label is not an alias, therefore its clip
+			 * doesn't need to be merged into anything. */
+			continue;
+
+		/* First, merge topmost pixel record. Whichever clip has the
+		 * minimum y value, pick its topmost pixel. Except where they're
+		 * the same, in which case merge them. */
+		if (canonical_clip->min.y > alias_clip->min.y) {
+			/* Replace */
+			canonical_clip->top_least_x = alias_clip->top_least_x;
+			canonical_clip->top_most_x = alias_clip->top_most_x;
+		} else if (canonical_clip->min.y == alias_clip->min.y) {
+			/* Merge. Indentation recommendations welcome. */
+			canonical_clip->top_least_x =
+				MIN(alias_clip->top_least_x,
+				    canonical_clip->top_least_x);
+			canonical_clip->top_most_x =
+				MIN(alias_clip->top_most_x,
+				    canonical_clip->top_most_x);
+		}
+
+		canonical_clip->mass += alias_clip->mass;
+		canonical_clip->max.x =
+			MAX(canonical_clip->max.x, alias_clip->max.x);
+		canonical_clip->max.y =
+			MAX(canonical_clip->max.y, alias_clip->max.y);
+		canonical_clip->min.x =
+			MIN(canonical_clip->min.x, alias_clip->min.x);
+		canonical_clip->min.y =
+			MIN(canonical_clip->min.y, alias_clip->min.y);
+
+		/* Invalidate the alias clip's values, so that it's ignored by
+		 * all other code. */
+		alias_clip->mass = 0;
+		alias_clip->max.x = 0;
+		alias_clip->max.y = 0;
+		alias_clip->min.x = 0xFFFF;
+		alias_clip->min.y = 0xFFFF;
 	}
-
-	/* init clips */
-	for (label_t i=0; i<max_alias; i++){
-		koki_clip_region_t clip;
-		clip.mass = 0;
-		clip.max.x = 0;
-		clip.max.y = 0;
-		clip.min.x = 0xFFFF; /* max out so below works */
-		clip.min.y = 0xFFFF;
-		g_array_append_val(clips, clip);
-	}
-
-	/* gather stats */
-	for (uint16_t y=0; y<labelled_image->h; y++){
-		for (uint16_t x=0; x<labelled_image->w; x++){
-
-			label_t label, alias;
-			koki_clip_region_t *clip;
-
-			label = KOKI_LABELLED_IMAGE_LABEL(labelled_image, x, y);
-
-			/* a threshold white pixel, ignore */
-			if (label == 0)
-				continue;
-
-			alias = label_aliases_index( aliases, label-1 );
-			clip = &label_clips_index( clips, alias-1 );
-
-			clip->mass++;
-			if (x > clip->max.x)
-				clip->max.x = x;
-			if (y > clip->max.y)
-				clip->max.y = y;
-			if (x < clip->min.x)
-				clip->min.x = x;
-			if (y < clip->min.y)
-				clip->min.y = y;
-
-		}//for col
-	}//for row
 }
 
 static uint32_t koki_funky_integral_image_sum( const uint32_t *ii, int imgwidth,
@@ -280,8 +350,12 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 					    uint16_t window_size,
 					    int16_t thresh_margin )
 {
+	label_t old_labels[frame->width+1]; /* NB: c99 var-sized array */
 	uint16_t x, y;
 	koki_labelled_image_t *lmg;
+	unsigned int old_label_idx = 0;
+
+	memset(old_labels, 0, sizeof(old_labels));
 
 	/* Instead of an integral image, use a plain array instead. We can
 	 * then optimise around this later. Also: the sum array. */
@@ -331,10 +405,12 @@ koki_labelled_image_t* koki_funky_label_adaptive( koki_t *koki,
 							   iimg, &win,
 							   x, y, thresh_margin ) ) {
 				/* Nothing exciting */
-				set_label( lmg, x, y, 0);
+				set_label( lmg, x, y, 0, old_labels,
+						&old_label_idx );
 			} else {
 				/* Label the thing */
-				label_dark_pixel( lmg, x, y );
+				label_dark_pixel( lmg, x, y, old_labels,
+						&old_label_idx );
 			}
 
 			winwidth = MIN(winwidth + 1, window_size);

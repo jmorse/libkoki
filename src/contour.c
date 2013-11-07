@@ -53,7 +53,7 @@ static koki_point2Di_t* first_labeled_on_top_row(koki_labelled_image_t *labelled
 {
 
 	koki_clip_region_t clip;
-	koki_point2Di_t *ret = NULL, *point;
+	koki_point2Di_t *point;
 	uint16_t width;
 
 	point = g_slice_new(koki_point2Di_t);
@@ -67,64 +67,24 @@ static koki_point2Di_t* first_labeled_on_top_row(koki_labelled_image_t *labelled
 	if (width % 2 == 1) /* make it even */
 		width++;
 
+	/* We have the topmost points stored in the clip; pick which one is
+	 * closest to the outside of the clip. */
+	uint16_t leftmost = clip.top_least_x;
+	uint16_t rightmost = clip.top_most_x;
+	leftmost -= clip.min.x;
+	leftmost = (width / 2) - leftmost;
+	rightmost -= clip.min.x;
+	rightmost -= width;
 
-	for (uint16_t i = 0; i < width/2; i++){
+	point->y = clip.min.y;
+	if (leftmost > rightmost) {
+		point->x = clip.top_least_x;
+	} else {
+		point->x = clip.top_most_x;
+	}
 
-		label_t label, alias;
-
-		/* check left side */
-		label = KOKI_LABELLED_IMAGE_LABEL(labelled_image,
-						  clip.min.x + i,
-						  clip.min.y);
-
-		if (label != 0){
-
-			alias = g_array_index(labelled_image->aliases,
-					      label_t, label-1);
-
-			if (alias == region+1){
-
-				point->x = clip.min.x + i;
-				point->y = clip.min.y;
-				ret = point;
-				break;
-
-			}
-
-		}// if label != 0
-
-
-		/* check right side */
-		label = KOKI_LABELLED_IMAGE_LABEL(labelled_image,
-						  clip.max.x - i,
-						  clip.min.y);
-
-		if (label != 0){
-
-			alias = g_array_index(labelled_image->aliases,
-					      label_t, label-1);
-
-			if (alias == region+1){
-
-				point->x = clip.max.x - i;
-				point->y = clip.min.y;
-				ret = point;
-				break;
-
-			}
-
-		}// if label != 0
-
-	}//for
-
-	if (ret == NULL)
-		g_slice_free(koki_point2Di_t, point);
-
-	return ret;
-
+	return point;
 }
-
-
 
 /**
  * @brief returns a 2D integer point in the direction specified

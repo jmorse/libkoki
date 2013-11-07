@@ -83,6 +83,8 @@ typedef struct {
 	koki_point2Di_t min;  /**< the top left corner co-ordinates */
 	koki_point2Di_t max;  /**< the bottom right corner co-ordinates */
 	uint16_t mass;        /**< the number of labelled pixels in the region */
+	uint16_t top_least_x;
+	uint16_t top_most_x;
 } koki_clip_region_t;
 
 
