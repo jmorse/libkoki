@@ -196,7 +196,7 @@ GSList* koki_contour_find(koki_labelled_image_t *labelled_image,
 
 	enum DIRECTION dir = N;
 	bool first_run = TRUE;
-	label_t label;
+	uint32_t label;
 
 	current = *first_point;
 

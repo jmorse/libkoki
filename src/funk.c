@@ -46,7 +46,7 @@ static void set_label(koki_labelled_image_t *labelled_image,
 
 	if (label == 0){
 
-		KOKI_LABELLED_IMAGE_LABEL(labelled_image, x, y) = 0;
+		KOKI_LABELLED_IMAGE_CLEAR_LABEL(labelled_image, x, y);
 
 	} else {
 		koki_clip_region_t *clip;
@@ -65,7 +65,7 @@ static void set_label(koki_labelled_image_t *labelled_image,
 			clip->top_most_x = x;
 
 		/* Label image as either zero or one, for light or dark. */
-		KOKI_LABELLED_IMAGE_LABEL(labelled_image, x, y) = label;
+		KOKI_LABELLED_IMAGE_SET_LABEL(labelled_image, x, y);
 	}
 
 	*wrapped_old_label_access(old_labels, *old_label_idx, labelled_image->w)

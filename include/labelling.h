@@ -60,8 +60,12 @@
  * @param y     the Y co-ordinate
  * @return      the label at point (x, y)
  */
-#define KOKI_LABELLED_IMAGE_LABEL(limg, x, y) \
-	((limg)->data[(y+1) * ((limg)->w+2) + (x+1)])
+#define KOKI_LABELLED_IMAGE_GET_LABEL(limg, x, y) \
+	(((limg)->data[((y) * ((limg)->w) + (x))/32]) & (1 << (x & 31)))
+#define KOKI_LABELLED_IMAGE_SET_LABEL(limg, x, y) \
+	((limg)->data[((y) * ((limg)->w) + (x))/32]) |= (1 << (x & 31))
+#define KOKI_LABELLED_IMAGE_CLEAR_LABEL(limg, x, y) \
+	((limg)->data[((y) * ((limg)->w) + (x))/32]) &= ~(1 << (x & 31))
 
 /**
  * an enumeration for compass directions
@@ -121,7 +125,7 @@ typedef uint16_t label_t;
  * \c (label_no-1).
  */
 typedef struct {
-	label_t *data;    /**< the array of labels, organised row after row */
+	uint32_t *data;    /**< the array of labels, organised row after row */
 	uint16_t w;        /**< the width of the labelled image */
 	uint16_t h;        /**< the height of the labelled image */
 	GArray *clips;     /**< a \c GArray* of \c koki_clip_region_t for the
@@ -143,7 +147,7 @@ bool koki_label_useable(koki_labelled_image_t *labelled_image, label_t region);
 
 IplImage* koki_labelled_image_to_image(koki_labelled_image_t *labelled_image);
 
-label_t get_connected_label(koki_labelled_image_t *labelled_image,
+uint32_t get_connected_label(koki_labelled_image_t *labelled_image,
 				    uint16_t x, uint16_t y,
 			     enum DIRECTION direction);
 

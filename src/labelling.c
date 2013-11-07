@@ -56,8 +56,9 @@ koki_labelled_image_t* koki_labelled_image_new(uint16_t w, uint16_t h)
 	labelled_image->h = h;
 
 	/* alocate the label data array */
-	uint32_t data_size = (w+2) * (h+2) * sizeof(label_t);
-	labelled_image->data = malloc(data_size);
+	uint32_t bits = w * h;
+	uint32_t bytes = bits / 8;
+	labelled_image->data = malloc(bytes);
 	assert(labelled_image->data != NULL);
 
 	/* init a GArray for label aliases */
@@ -69,21 +70,6 @@ koki_labelled_image_t* koki_labelled_image_new(uint16_t w, uint16_t h)
 	labelled_image->clips = g_array_new(FALSE,
 					   FALSE,
 					   sizeof(koki_clip_region_t));
-
-	/* zero the perimeter (makes life easier later
-	   when looking for connected regions) */
-	for (uint16_t i=0; i<w+2; i++){
-		/* top row */
-		labelled_image->data[i] = 0;
-		/* bottom row */
-		labelled_image->data[(h+1) * (w+2) + i] = 0;
-	}
-	for (uint16_t i=1; i<h+1; i++){
-		/* left col */
-		labelled_image->data[(w+2) * i] = 0;
-		/* right col */
-		labelled_image->data[(w+2) * i + w + 1] = 0;
-	}
 
 	return labelled_image;
 
@@ -116,6 +102,7 @@ void koki_labelled_image_free(koki_labelled_image_t *labelled_image)
  * @param y               the Y co-ordinate of the image
  * @param label           the label that pixel (x, y) should have
  */
+#if 0
 static void set_label(koki_labelled_image_t *labelled_image,
 		      uint16_t x, uint16_t y, label_t label)
 {
@@ -135,6 +122,7 @@ static void set_label(koki_labelled_image_t *labelled_image,
 	}
 
 }
+#endif
 
 
 
@@ -147,21 +135,21 @@ static void set_label(koki_labelled_image_t *labelled_image,
  * @param direction       the direction to move in (from the \c DIRECTION enum)
  * @return                the label \c direction of (x, y)
  */
-label_t get_connected_label(koki_labelled_image_t *labelled_image,
+uint32_t get_connected_label(koki_labelled_image_t *labelled_image,
 				    uint16_t x, uint16_t y,
 				    enum DIRECTION direction)
 {
 
 	switch (direction){
 
-	case N:  return KOKI_LABELLED_IMAGE_LABEL(labelled_image, x,   y-1);
-	case NE: return KOKI_LABELLED_IMAGE_LABEL(labelled_image, x+1, y-1);
-	case E:  return KOKI_LABELLED_IMAGE_LABEL(labelled_image, x+1, y);
-	case SE: return KOKI_LABELLED_IMAGE_LABEL(labelled_image, x+1, y+1);
-	case S:  return KOKI_LABELLED_IMAGE_LABEL(labelled_image, x,   y+1);
-	case SW: return KOKI_LABELLED_IMAGE_LABEL(labelled_image, x-1, y+1);
-	case W:  return KOKI_LABELLED_IMAGE_LABEL(labelled_image, x-1, y);
-	case NW: return KOKI_LABELLED_IMAGE_LABEL(labelled_image, x-1, y-1);
+	case N:  return KOKI_LABELLED_IMAGE_GET_LABEL(labelled_image, x,   y-1);
+	case NE: return KOKI_LABELLED_IMAGE_GET_LABEL(labelled_image, x+1, y-1);
+	case E:  return KOKI_LABELLED_IMAGE_GET_LABEL(labelled_image, x+1, y);
+	case SE: return KOKI_LABELLED_IMAGE_GET_LABEL(labelled_image, x+1, y+1);
+	case S:  return KOKI_LABELLED_IMAGE_GET_LABEL(labelled_image, x,   y+1);
+	case SW: return KOKI_LABELLED_IMAGE_GET_LABEL(labelled_image, x-1, y+1);
+	case W:  return KOKI_LABELLED_IMAGE_GET_LABEL(labelled_image, x-1, y);
+	case NW: return KOKI_LABELLED_IMAGE_GET_LABEL(labelled_image, x-1, y-1);
 	default: return -1;
 
 	}
@@ -209,6 +197,7 @@ static void label_alias( koki_labelled_image_t *lmg, label_t l_canon, label_t l_
 	*l = l_canon;
 }
 
+#if 0
 static void label_dark_pixel( koki_labelled_image_t *lmg,
 			      uint16_t x, uint16_t y )
 {
@@ -281,6 +270,7 @@ static void label_dark_pixel( koki_labelled_image_t *lmg,
 	g_array_append_val(lmg->aliases, label_tmp);
 	set_label(lmg, x, y, label_tmp);
 }
+#endif
 
 /**
  * @brief performs the labelling algortihm on a particular pixel, setting its
@@ -294,6 +284,7 @@ static void label_dark_pixel( koki_labelled_image_t *lmg,
  *                        this param should be 3 times the threshold in the
  *                        range 0-255. (This is an optimization.)
  */
+#if 0
 static void label_pixel(IplImage *image, koki_labelled_image_t *labelled_image,
 			uint16_t x, uint16_t y, uint16_t threshold)
 {
@@ -306,7 +297,9 @@ static void label_pixel(IplImage *image, koki_labelled_image_t *labelled_image,
 	/* must be a black pixel then... */
 	label_dark_pixel( labelled_image, x, y );
 }
+#endif
 
+#if 0
 static void label_image_calc_stats( koki_labelled_image_t *labelled_image )
 {
 	/* Now renumber all labels to ensure they're all canonical */
@@ -371,6 +364,7 @@ static void label_image_calc_stats( koki_labelled_image_t *labelled_image )
 		}//for col
 	}//for row
 }
+#endif
 
 /**
  * @brief produces a new labelled image from the given \c IplImage
@@ -379,6 +373,7 @@ static void label_image_calc_stats( koki_labelled_image_t *labelled_image )
  * @param threshold  the threshold to apply (in the range \c 0-255)
  * @return           a pointer to a new labelled image
  */
+#if 0
 koki_labelled_image_t* koki_label_image(IplImage *image, uint16_t threshold)
 {
 
@@ -401,6 +396,7 @@ koki_labelled_image_t* koki_label_image(IplImage *image, uint16_t threshold)
 
 	return labelled_image;
 }
+#endif
 
 
 
@@ -414,6 +410,7 @@ koki_labelled_image_t* koki_label_image(IplImage *image, uint16_t threshold)
  * @param labelled_image  the labeled image to represent
  * @return                an \c IplImage representation of the labelled image
  */
+#if 0
 IplImage* koki_labelled_image_to_image(koki_labelled_image_t *labelled_image)
 {
 
@@ -445,6 +442,7 @@ IplImage* koki_labelled_image_to_image(koki_labelled_image_t *labelled_image)
 	return image;
 
 }
+#endif
 
 
 
@@ -502,6 +500,7 @@ bool koki_label_useable(koki_labelled_image_t *labelled_image, label_t region)
  *                       to accept
  * @return the labelled image
  */
+#if 0
 koki_labelled_image_t* koki_label_adaptive( koki_t *koki,
 					    const IplImage *frame,
 					    uint16_t window_size,
@@ -569,3 +568,4 @@ koki_labelled_image_t* koki_label_adaptive( koki_t *koki,
 
 	return lmg;
 }
+#endif
