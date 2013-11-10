@@ -2,6 +2,11 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include <xmmintrin.h>
+#include <emmintrin.h>
+#include <pmmintrin.h>
+#include <tmmintrin.h>
+
 #include <cv.h>
 #include "labelling.h"
 #include "threshold.h"
@@ -317,12 +322,70 @@ koki_funky_integral_image_advance( uint32_t * restrict ii, int imgwidth,
 	uint16_t x;
 
 	uint32_t * restrict span = &ii[(y % 16) * imgwidth];
-	uint8_t * restrict srcspan = ((srcimg)->imageData + (srcimg)->widthStep*(y));
+	uint32_t * restrict srcspan = (uint32_t *)((srcimg)->imageData + (srcimg)->widthStep*(y));
 	uint32_t v = 0;
-	for( x=0; x < width; x++) {
-		*sum += *srcspan++;
-		v += *sum++;
-		*span++ = v;
+	//assert((width & 3) == 0);
+
+	__m128i accuml_horizontal = _mm_set1_epi32(0);
+
+	for( x=0; x < width; x += 4) {
+		/* Load some source data as bytes, and unpack to 32 bit dwords*/
+		__m128i databytes =  _mm_set1_epi32(*srcspan++);
+		__m128i zeroreg = _mm_cvtsi32_si128(0);
+		__m128i datawords = _mm_unpackhi_epi8(databytes, zeroreg);
+		__m128i datadwords = _mm_unpackhi_epi16(datawords, zeroreg);
+
+		/* Load the sum data */
+		__m128i column_data = _mm_load_si128(sum);
+
+		/* Accumulate sum data and store */
+		__m128i summed_columns = _mm_add_epi32(column_data, datadwords);
+		_mm_store_si128(sum, summed_columns);
+		sum += 4;
+
+		/* Add in the horizontal value accumulated this far. */
+		__m128i summed_results =
+			_mm_add_epi32(summed_columns, accuml_horizontal);
+
+		/* Complicated: sum dwords horizontally. We can do this with
+		 * pairs, but not across the whole vector. */
+		/* The result here is 0, 0, a+b, c+d. */
+		__m128i horiz_sum_pair = _mm_hadd_epi32(zeroreg,summed_results);
+
+		/* Result: a, b, abc, ??? */
+		__m128i foobar = _mm_add_epi32(summed_results, horiz_sum_pair);
+
+		/* Result: abcd, 0, 0, 0 */
+		__m128i qux = _mm_hadd_epi32(summed_results, zeroreg);
+		qux = _mm_hadd_epi32(qux, zeroreg);
+
+		/* Result: abcd, 0, ab, cd */
+		qux = _mm_or_si128(qux, horiz_sum_pair);
+
+		/* Now, foobar and qux contain two pieces of final data each.
+		 * Shuffle them all into the same vector. The selection is:
+		 * dword 0 from foobar -> 0
+		 * dword 2 from foobar -> 2
+		 * dword 0 from qux -> 0
+		 * dword 2 from qux -> 2
+		 * Giving us the result: a, abc, abcd, ab */
+		__m128i final = (__m128i)_mm_shuffle_ps((__m128)foobar, (__m128)qux, 0x88);
+
+		/* And finally, reshuffle into the useful order. We want:
+		 * a:    dword 0
+		 * ab:   dword 3
+		 * abc:  dword 1
+		 * abcd: dword 2
+		 * Resulting in a, ab, abc, abcd */
+		final = _mm_shuffle_epi32(final, 0x9C);
+
+		/* Store back. */
+		_mm_store_si128(span, final);
+
+		/* Pick out the final accumulated value and store it, so that
+		 * we can add it to the next part of the line */
+		span += 3;
+		accuml_horizontal = _mm_cvtsi32_si128(*span++);
 	}
 }
 
